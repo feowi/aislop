@@ -23,6 +23,8 @@
       </section>
       <section class="sidebar-section ascend">
         <h3>Ascension</h3>
+        <p id="ascendInfo">Forge enough energy to rebirth for permanent essence and unlock new ascension upgrades.</p>
+        <div class="sidebar-stat"><span>Ascension Upgrades</span><span id="ascensionUpgradeCount">0</span></div>
         <p id="ascendInfo">Forge enough energy to rebirth for permanent essence bonuses.</p>
         <button id="ascendButton" disabled>Ascend requires 5,000 energy</button>
       </section>
@@ -86,6 +88,13 @@
         </article>
         <article class="panel">
           <header class="panel-header">
+            <h3>Ascension Upgrades</h3>
+            <p>Channel essence into permanent amplifiers that survive every reset.</p>
+          </header>
+          <div class="card-list" id="ascensionUpgradeList"></div>
+        </article>
+        <article class="panel">
+          <header class="panel-header">
             <h3>Achievements</h3>
             <p>Permanent boosts earned by hitting production milestones.</p>
           </header>
@@ -114,11 +123,14 @@
       passiveMultiplier: 1,
       permanentManualMultiplier: 1,
       permanentPassiveMultiplier: 1,
+      comboBonusBase: 0.02,
       comboBonus: 0.02,
+      essenceBonusBase: 0.05,
       essenceBonus: 0.05,
       comboTimer: null,
       upgrades: {},
       automations: {},
+      ascensionUpgrades: {},
       achievements: new Set(),
       phraseSet: new Set(),
     };
@@ -165,6 +177,16 @@
         },
       },
       {
+        id: "ionizedKnuckles",
+        name: "Ionized Knuckles",
+        description: "+3 energy per click.",
+        baseCost: 900,
+        costMult: 1.75,
+        onPurchase() {
+          state.manualPower += 3;
+        },
+      },
+      {
         id: "quantumTuning",
         name: "Quantum Tuning",
         description: "Every essence adds +2% extra click power.",
@@ -172,6 +194,96 @@
         costMult: 2,
         onPurchase() {
           state.essenceBonus += 0.02;
+        },
+      },
+      {
+        id: "criticalOverdrive",
+        name: "Critical Overdrive",
+        description: "+25% click output.",
+        baseCost: 3200,
+        costMult: 1.85,
+        onPurchase() {
+          state.manualMultiplier *= 1.25;
+        },
+      },
+      {
+        id: "voltageSpirals",
+        name: "Voltage Spirals",
+        description: "+6 energy every second.",
+        baseCost: 4800,
+        costMult: 1.85,
+        onPurchase() {
+          state.passiveAdd += 6;
+        },
+      },
+      {
+        id: "fusionStampers",
+        name: "Fusion Stampers",
+        description: "Passive rigs gain +10% output.",
+        baseCost: 6500,
+        costMult: 1.9,
+        onPurchase() {
+          state.passiveMultiplier *= 1.1;
+        },
+      },
+      {
+        id: "phaseEcho",
+        name: "Phase Echo",
+        description: "Combos grant +1.5% extra power per link.",
+        baseCost: 8200,
+        costMult: 1.92,
+        onPurchase() {
+          state.comboBonus += 0.015;
+        },
+      },
+      {
+        id: "holoGuidance",
+        name: "Holographic Guidance",
+        description: "+30% click output.",
+        baseCost: 11500,
+        costMult: 1.95,
+        onPurchase() {
+          state.manualMultiplier *= 1.3;
+        },
+      },
+      {
+        id: "psionicDrivers",
+        name: "Psionic Drivers",
+        description: "Passive rigs gain +15% output.",
+        baseCost: 16500,
+        costMult: 1.95,
+        onPurchase() {
+          state.passiveMultiplier *= 1.15;
+        },
+      },
+      {
+        id: "stormCore",
+        name: "Storm Core",
+        description: "+12 energy per click.",
+        baseCost: 24000,
+        costMult: 2,
+        onPurchase() {
+          state.manualPower += 12;
+        },
+      },
+      {
+        id: "quantumSingularity",
+        name: "Quantum Singularity",
+        description: "+60% click output.",
+        baseCost: 42000,
+        costMult: 2.05,
+        onPurchase() {
+          state.manualMultiplier *= 1.6;
+        },
+      },
+      {
+        id: "auroraForge",
+        name: "Aurora Forge",
+        description: "Adds 18 energy every second.",
+        baseCost: 60000,
+        costMult: 2.1,
+        onPurchase() {
+          state.passiveAdd += 18;
         },
       },
     ];
