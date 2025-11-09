@@ -3,60 +3,373 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Square Tracker</title>
-
-  <!-- Link external CSS -->
+  <title>Prismatic Ascension</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="bg-gradient"></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="title-block">
+        <h1>Prismatic Ascension</h1>
+        <p class="subtitle">Channel radiant energy, unlock achievements, and ascend through infinite color.</p>
+      </div>
+      <div class="header-stats">
+        <div class="stat">
+          <span class="label">Energy</span>
+          <span class="value" id="energyDisplay">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Clicks</span>
+          <span class="value" id="clickDisplay">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Essence</span>
+          <span class="value" id="essenceDisplay">0</span>
+        </div>
+      </div>
+    </header>
 
-<div id="sidebar">
-  <h2>Phrases Seen</h2>
-  <div id="history"></div>
-</div>
+    <main class="layout">
+      <section class="game-panel">
+        <div class="crystal-wrapper">
+          <div id="square" class="crystal">
+            <div class="ripple"></div>
+            <div class="spark"></div>
+          </div>
+        </div>
+        <div class="phrase-box">
+          <span id="phrase">Tap the crystal to begin channeling energy.</span>
+        </div>
+        <div class="progress-tray">
+          <div class="progress-card">
+            <div class="progress-label">Ascension Charge</div>
+            <div class="progress-bar">
+              <div id="ascensionProgress" class="progress-fill" style="width:0%"></div>
+            </div>
+            <div class="progress-details"><span id="ascensionDetail">0 / 1,000 energy</span></div>
+          </div>
+          <div class="progress-card">
+            <div class="progress-label">Energy per Click</div>
+            <div class="progress-value" id="epcDisplay">1</div>
+          </div>
+          <div class="progress-card">
+            <div class="progress-label">Ascension Multiplier</div>
+            <div class="progress-value" id="multiplierDisplay">x1.00</div>
+          </div>
+        </div>
+      </section>
 
-<div id="main">
-  <div id="phrase"></div>
-  <div id="square"></div>
-  <div id="counter">Clicks: 0</div>
-</div>
+      <section class="side-panels">
+        <div class="card">
+          <h2>Upgrades</h2>
+          <p class="card-subtitle">Invest energy to empower your clicks.</p>
+          <div id="upgradeList" class="upgrade-list"></div>
+        </div>
 
-<!-- Load phrases first -->
-<script src="phrases.js"></script>
+        <div class="card">
+          <h2>Achievements</h2>
+          <p class="card-subtitle">Celebrate milestones in your prismatic journey.</p>
+          <div id="achievementList" class="achievement-list"></div>
+        </div>
 
-<script>
-  let clickCount = 0;
-  const seen = new Set();
+        <div class="card rebirth-card">
+          <h2>Ascension</h2>
+          <p class="card-subtitle">Release your progress to gain essence and multiply future gains.</p>
+          <button id="rebirthButton" class="primary" disabled>Ascend (+0 essence)</button>
+          <p class="hint" id="rebirthHint">Reach 1,000 energy to ascend.</p>
+        </div>
 
-  const square = document.getElementById("square");
-  const phraseText = document.getElementById("phrase");
-  const counterText = document.getElementById("counter");
-  const historyBox = document.getElementById("history");
+        <div class="card history-card">
+          <h2>Moments</h2>
+          <div id="history" class="history-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
 
-  function randomColor(){
-    return `hsl(${Math.floor(Math.random()*360)}, 80%, 60%)`;
-  }
+  <script src="phrases.js"></script>
+  <script>
+    const gameState = {
+      energy: 0,
+      totalClicks: 0,
+      energyPerClick: 1,
+      ascensionMultiplier: 1,
+      essence: 0,
+      ascensions: 0,
+      ascensionGoal: 1000,
+      upgradesPurchased: {},
+      achievementsUnlocked: new Set(),
+    };
 
-  square.addEventListener("click", () => {
-    const newColor = randomColor();
-    square.style.background = newColor;
-    document.documentElement.style.setProperty("--glow-color", newColor);
+    const upgrades = [
+      {
+        id: 'softTouch',
+        name: 'Soft Resonance',
+        description: '+1 energy per click.',
+        baseCost: 25,
+        scaling: 1.25,
+        effect: state => state.energyPerClick += 1,
+      },
+      {
+        id: 'focusedBeam',
+        name: 'Focused Beam',
+        description: 'Multiply energy per click by 2.',
+        baseCost: 120,
+        scaling: 1.45,
+        effect: state => state.energyPerClick *= 2,
+      },
+      {
+        id: 'stormPulse',
+        name: 'Storm Pulse',
+        description: 'Clicks generate +10% more energy per ascension completed.',
+        baseCost: 350,
+        scaling: 1.8,
+        effect: state => {
+          state.ascensionMultiplier += 0.1;
+        },
+      },
+      {
+        id: 'echoLoop',
+        name: 'Echo Loop',
+        description: 'Adds an echo click every 5 taps (double reward).',
+        baseCost: 800,
+        scaling: 2,
+        effect: state => {
+          state.upgradesPurchased.echoLoopCount = (state.upgradesPurchased.echoLoopCount || 0) + 1;
+        },
+      },
+      {
+        id: 'auroraCore',
+        name: 'Aurora Core',
+        description: 'Increase ascension essence gained by 25%.',
+        baseCost: 1500,
+        scaling: 2.1,
+        effect: state => {
+          state.upgradesPurchased.auroraCoreBonus = (state.upgradesPurchased.auroraCoreBonus || 0) + 0.25;
+        },
+      },
+    ];
 
-    const chosen = phrases[Math.floor(Math.random()*phrases.length)];
-    phraseText.textContent = chosen;
+    const achievements = [
+      {
+        id: 'firstClick',
+        name: 'First Spark',
+        description: 'Click the crystal once.',
+        condition: state => state.totalClicks >= 1,
+        reward: '+50 energy',
+        onUnlock: state => state.energy += 50,
+      },
+      {
+        id: 'hundredEnergy',
+        name: 'Bright Reserves',
+        description: 'Accumulate 100 energy.',
+        condition: state => state.energy >= 100,
+        reward: '+5% ascension multiplier',
+        onUnlock: state => state.ascensionMultiplier += 0.05,
+      },
+      {
+        id: 'firstUpgrade',
+        name: 'Tuned Flow',
+        description: 'Purchase an upgrade.',
+        condition: state => Object.keys(state.upgradesPurchased).length > 0,
+        reward: '+150 energy',
+        onUnlock: state => state.energy += 150,
+      },
+      {
+        id: 'thousandClicks',
+        name: 'Thunderous Rhythm',
+        description: 'Click the crystal 1,000 times.',
+        condition: state => state.totalClicks >= 1000,
+        reward: '+1 essence',
+        onUnlock: state => state.essence += 1,
+      },
+      {
+        id: 'firstAscension',
+        name: 'Beyond the Prism',
+        description: 'Complete your first ascension.',
+        condition: state => state.ascensions >= 1,
+        reward: 'Unlock ascension insight',
+        onUnlock: () => {
+          logMoment('The astral plane whispers: each return grows brighter.');
+        },
+      },
+    ];
 
-    clickCount++;
-    counterText.textContent = `Clicks: ${clickCount}`;
+    const square = document.getElementById('square');
+    const phraseText = document.getElementById('phrase');
+    const historyBox = document.getElementById('history');
+    const energyDisplay = document.getElementById('energyDisplay');
+    const clickDisplay = document.getElementById('clickDisplay');
+    const epcDisplay = document.getElementById('epcDisplay');
+    const multiplierDisplay = document.getElementById('multiplierDisplay');
+    const essenceDisplay = document.getElementById('essenceDisplay');
+    const upgradeList = document.getElementById('upgradeList');
+    const achievementList = document.getElementById('achievementList');
+    const rebirthButton = document.getElementById('rebirthButton');
+    const rebirthHint = document.getElementById('rebirthHint');
+    const ascensionProgress = document.getElementById('ascensionProgress');
+    const ascensionDetail = document.getElementById('ascensionDetail');
 
-    if (!seen.has(chosen)) {
-      seen.add(chosen);
-      const entry = document.createElement("div");
-      entry.textContent = chosen;
-      historyBox.appendChild(entry);
-      historyBox.scrollTop = historyBox.scrollHeight;
+    let clickCombo = 0;
+    let rippleTimeout;
+
+    function formatNumber(value) {
+      if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
+      if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
+      if (value >= 1e3) return (value / 1e3).toFixed(2) + 'K';
+      return Math.floor(value).toLocaleString();
     }
-  });
-</script>
 
+    function logMoment(text) {
+      const entry = document.createElement('div');
+      entry.className = 'history-entry';
+      entry.textContent = text;
+      historyBox.prepend(entry);
+      const limit = 40;
+      while (historyBox.children.length > limit) {
+        historyBox.removeChild(historyBox.lastChild);
+      }
+    }
+
+    function updateStats() {
+      energyDisplay.textContent = formatNumber(gameState.energy);
+      clickDisplay.textContent = formatNumber(gameState.totalClicks);
+      epcDisplay.textContent = formatNumber(gameState.energyPerClick * gameState.ascensionMultiplier);
+      multiplierDisplay.textContent = 'x' + (gameState.ascensionMultiplier).toFixed(2);
+      essenceDisplay.textContent = formatNumber(gameState.essence);
+      const progress = Math.min(1, gameState.energy / gameState.ascensionGoal);
+      ascensionProgress.style.width = `${progress * 100}%`;
+      ascensionDetail.textContent = `${formatNumber(gameState.energy)} / ${formatNumber(gameState.ascensionGoal)} energy`;
+
+      const ascendable = gameState.energy >= gameState.ascensionGoal;
+      rebirthButton.disabled = !ascendable;
+      const baseEssenceGain = Math.floor(gameState.energy / gameState.ascensionGoal);
+      const bonus = (gameState.upgradesPurchased.auroraCoreBonus || 0);
+      const totalGain = Math.max(1, Math.floor(baseEssenceGain * (1 + bonus)));
+      rebirthButton.textContent = ascendable ? `Ascend (+${formatNumber(totalGain)} essence)` : `Ascend (+${formatNumber(totalGain)} essence)`;
+      rebirthHint.textContent = ascendable ? 'Ascend now to reset for greater multipliers.' : `Reach ${formatNumber(gameState.ascensionGoal)} energy to ascend.`;
+    }
+
+    function renderUpgrades() {
+      upgradeList.innerHTML = '';
+      upgrades.forEach(upgrade => {
+        const count = gameState.upgradesPurchased[upgrade.id] || 0;
+        const cost = Math.floor(upgrade.baseCost * Math.pow(upgrade.scaling, count));
+        const upgradeEl = document.createElement('button');
+        upgradeEl.className = 'upgrade-item';
+        upgradeEl.innerHTML = `
+          <div class="upgrade-header">
+            <span class="upgrade-name">${upgrade.name}</span>
+            <span class="upgrade-cost">${formatNumber(cost)} ⚡</span>
+          </div>
+          <div class="upgrade-body">
+            <span class="upgrade-description">${upgrade.description}</span>
+            <span class="upgrade-owned">Owned: ${count}</span>
+          </div>`;
+        upgradeEl.disabled = gameState.energy < cost;
+        upgradeEl.addEventListener('click', () => {
+          if (gameState.energy < cost) return;
+          gameState.energy -= cost;
+          upgrade.effect(gameState);
+          gameState.upgradesPurchased[upgrade.id] = count + 1;
+          logMoment(`Upgrade acquired: ${upgrade.name}!`);
+          renderUpgrades();
+          updateStats();
+          evaluateAchievements();
+        });
+        upgradeList.appendChild(upgradeEl);
+      });
+    }
+
+    function renderAchievements() {
+      achievementList.innerHTML = '';
+      achievements.forEach(achievement => {
+        const unlocked = gameState.achievementsUnlocked.has(achievement.id);
+        const entry = document.createElement('div');
+        entry.className = 'achievement-item' + (unlocked ? ' unlocked' : '');
+        entry.innerHTML = `
+          <div class="achievement-header">
+            <span class="achievement-name">${achievement.name}</span>
+            <span class="achievement-reward">${achievement.reward}</span>
+          </div>
+          <p class="achievement-description">${achievement.description}</p>`;
+        achievementList.appendChild(entry);
+      });
+    }
+
+    function evaluateAchievements() {
+      achievements.forEach(achievement => {
+        if (gameState.achievementsUnlocked.has(achievement.id)) return;
+        if (achievement.condition(gameState)) {
+          gameState.achievementsUnlocked.add(achievement.id);
+          achievement.onUnlock(gameState);
+          logMoment(`Achievement unlocked: ${achievement.name}!`);
+          renderAchievements();
+          updateStats();
+        }
+      });
+    }
+
+    function triggerRipple() {
+      square.classList.remove('active');
+      void square.offsetWidth;
+      square.classList.add('active');
+      clearTimeout(rippleTimeout);
+      rippleTimeout = setTimeout(() => {
+        square.classList.remove('active');
+      }, 450);
+    }
+
+    function handleClick() {
+      const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+      phraseText.textContent = phrase;
+      logMoment(phrase);
+
+      gameState.totalClicks++;
+      const baseGain = gameState.energyPerClick * gameState.ascensionMultiplier;
+      clickCombo = (clickCombo + 1) % 5;
+      let gain = baseGain;
+      if (gameState.upgradesPurchased.echoLoopCount && clickCombo === 0) {
+        gain *= 2;
+        logMoment('Echo loop resonated for double gain!');
+      }
+      gameState.energy += gain;
+
+      triggerRipple();
+      evaluateAchievements();
+      updateStats();
+      renderUpgrades();
+    }
+
+    function performAscension() {
+      if (gameState.energy < gameState.ascensionGoal) return;
+      const baseEssenceGain = Math.floor(gameState.energy / gameState.ascensionGoal);
+      const bonus = (gameState.upgradesPurchased.auroraCoreBonus || 0);
+      const essenceGain = Math.max(1, Math.floor(baseEssenceGain * (1 + bonus)));
+      gameState.essence += essenceGain;
+      gameState.ascensionMultiplier += 0.25 + essenceGain * 0.1;
+      gameState.energy = 0;
+      gameState.energyPerClick = 1;
+      gameState.totalClicks = 0;
+      gameState.ascensions += 1;
+      gameState.upgradesPurchased = {};
+      gameState.ascensionGoal = Math.floor(gameState.ascensionGoal * 2.2);
+      logMoment(`Ascended and gained ${essenceGain} essence! Multiplier surges.`);
+      renderUpgrades();
+      updateStats();
+      evaluateAchievements();
+    }
+
+    square.addEventListener('click', handleClick);
+    rebirthButton.addEventListener('click', performAscension);
+
+    renderUpgrades();
+    renderAchievements();
+    updateStats();
+  </script>
 </body>
 </html>
