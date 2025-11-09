@@ -3,60 +3,1098 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Square Tracker</title>
-
-  <!-- Link external CSS -->
+  <title>Cube Forge Tycoon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="app">
+    <aside id="sidebar" class="column column-left">
+      <header class="sidebar-header">
+        <h2>Factory Log</h2>
+        <p>Track rare phrases, ascension bonuses, and production notes.</p>
+      </header>
+      <section class="sidebar-section">
+        <div class="sidebar-stat"><span>Essence</span><span id="essenceDisplay">0</span></div>
+        <div class="sidebar-stat"><span>Ascensions</span><span id="ascensionDisplay">0</span></div>
+        <div class="sidebar-stat"><span>Best Combo</span><span id="bestComboDisplay">0</span></div>
+      </section>
+      <section class="sidebar-section themes">
+        <h3>Theme Reactor</h3>
+        <p class="theme-info" id="themeInfo">Select a palette to reforge the interface.</p>
+        <div class="theme-grid" id="themeGrid"></div>
+      </section>
+      <section class="sidebar-section ascend">
+        <h3>Ascension</h3>
+        <p id="ascendInfo">Forge enough energy to rebirth for permanent essence and unlock new ascension upgrades.</p>
+        <div class="sidebar-stat"><span>Ascension Upgrades</span><span id="ascensionUpgradeCount">0</span></div>
+        <button id="ascendButton" disabled>Ascend requires 5,000 energy</button>
+      </section>
+      <section class="sidebar-section history">
+        <h3>Phrase Archive</h3>
+        <div id="history"></div>
+      </section>
+    </aside>
 
-<div id="sidebar">
-  <h2>Phrases Seen</h2>
-  <div id="history"></div>
-</div>
+    <main id="playfield" class="column column-center">
+      <section class="hud">
+        <div class="stat-card">
+          <span class="label">Energy</span>
+          <span class="value" id="energyDisplay">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">Energy / Click</span>
+          <span class="value" id="epcDisplay">1</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">Energy / Sec</span>
+          <span class="value" id="epsDisplay">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">Clicks</span>
+          <span class="value" id="clickDisplay">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">Lifetime Energy</span>
+          <span class="value" id="lifetimeDisplay">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">Combos</span>
+          <span class="value" id="comboDisplay">x1</span>
+        </div>
+      </section>
 
-<div id="main">
-  <div id="phrase"></div>
-  <div id="square"></div>
-  <div id="counter">Clicks: 0</div>
-</div>
+      <section class="forge">
+        <div id="phrase" class="phrase-display"></div>
+        <div id="square" aria-label="Forge cube" role="button" tabindex="0"></div>
+        <div class="forge-stats">
+          <div id="counter">Clicks: 0</div>
+          <div id="comboStatus">Combo streak: 0</div>
+        </div>
+      </section>
 
-<!-- Load phrases first -->
-<script src="phrases.js"></script>
+      <section class="center-panels">
+        <article class="panel achievements-panel">
+          <header class="panel-header">
+            <h3>Achievements</h3>
+            <p>Permanent boosts earned by hitting production milestones.</p>
+          </header>
+          <div class="card-list" id="achievementList"></div>
+        </article>
+      </section>
+    </main>
 
-<script>
-  let clickCount = 0;
-  const seen = new Set();
+    <aside id="store" class="column column-right">
+      <header class="store-header">
+        <h2>Forge Store</h2>
+        <p>Invest energy and essence into long-term production.</p>
+      </header>
+      <div class="store-scroll">
+        <article class="panel store-panel">
+          <header class="panel-header">
+            <h3>Manual Upgrades</h3>
+            <p>Boost clicking power to shatter the cube faster.</p>
+          </header>
+          <div class="card-list" id="upgradeList"></div>
+        </article>
+        <article class="panel store-panel">
+          <header class="panel-header">
+            <h3>Automation</h3>
+            <p>Deploy autonomous rigs to generate energy while you plan.</p>
+          </header>
+          <div class="card-list" id="automationList"></div>
+        </article>
+        <article class="panel store-panel">
+          <header class="panel-header">
+            <h3>Ascension Upgrades</h3>
+            <p>Channel essence into permanent amplifiers that survive every reset.</p>
+          </header>
+          <div class="card-list" id="ascensionUpgradeList"></div>
+        </article>
+      </div>
+    </aside>
+  </div>
 
-  const square = document.getElementById("square");
-  const phraseText = document.getElementById("phrase");
-  const counterText = document.getElementById("counter");
-  const historyBox = document.getElementById("history");
+  <script src="phrases.js"></script>
+  <script>
+    const numberFormatter = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
 
-  function randomColor(){
-    return `hsl(${Math.floor(Math.random()*360)}, 80%, 60%)`;
-  }
+    const state = {
+      energy: 0,
+      lifetimeEnergy: 0,
+      essence: 0,
+      clickCount: 0,
+      lifetimeClicks: 0,
+      combo: 0,
+      bestCombo: 0,
+      ascensions: 0,
+      manualPower: 1,
+      manualMultiplier: 1,
+      passiveAdd: 0,
+      passiveMultiplier: 1,
+      permanentManualMultiplier: 1,
+      permanentPassiveMultiplier: 1,
+      comboBonusBase: 0.02,
+      comboBonus: 0.02,
+      essenceBonusBase: 0.05,
+      essenceBonus: 0.05,
+      comboTimer: null,
+      upgrades: {},
+      automations: {},
+      ascensionUpgrades: {},
+      achievements: new Set(),
+      phraseSet: new Set(),
+    };
 
-  square.addEventListener("click", () => {
-    const newColor = randomColor();
-    square.style.background = newColor;
-    document.documentElement.style.setProperty("--glow-color", newColor);
+    const themeOptions = [
+      {
+        id: "neon-forge",
+        name: "Neon Forge",
+        tagline: "Electric blues and plasma streaks light up the forge.",
+        preview: ["#2bc4ff", "#6a5bff", "#050918"],
+      },
+      {
+        id: "solar-smithy",
+        name: "Solar Smithy",
+        tagline: "Molten embers and brass trim heat every panel.",
+        preview: ["#ff9b3d", "#ff4e50", "#200900"],
+      },
+      {
+        id: "quantum-bloom",
+        name: "Quantum Bloom",
+        tagline: "Iridescent violets pulse with synthetic petals.",
+        preview: ["#ff6fe4", "#7a8bff", "#1a0223"],
+      },
+      {
+        id: "arctic-arc",
+        name: "Arctic Arc",
+        tagline: "Glacial teals and polar whites keep the cube crisp.",
+        preview: ["#7de7ff", "#48a9ff", "#012233"],
+      },
+      {
+        id: "verdant-core",
+        name: "Verdant Core",
+        tagline: "Bio-luminescent greens surge through the reactor lines.",
+        preview: ["#58ff9c", "#14d97a", "#031b11"],
+      },
+    ];
 
-    const chosen = phrases[Math.floor(Math.random()*phrases.length)];
-    phraseText.textContent = chosen;
+    const THEME_STORAGE_KEY = "cubeForgeTheme";
 
-    clickCount++;
-    counterText.textContent = `Clicks: ${clickCount}`;
-
-    if (!seen.has(chosen)) {
-      seen.add(chosen);
-      const entry = document.createElement("div");
-      entry.textContent = chosen;
-      historyBox.appendChild(entry);
-      historyBox.scrollTop = historyBox.scrollHeight;
+    function applyTheme(themeId, persist = true) {
+      const theme = themeOptions.find((option) => option.id === themeId) || themeOptions[0];
+      document.body.dataset.theme = theme.id;
+      const info = document.getElementById("themeInfo");
+      if (info) {
+        info.textContent = theme.tagline;
+      }
+      document.querySelectorAll(".theme-button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.theme === theme.id);
+      });
+      if (persist) {
+        try {
+          localStorage.setItem(THEME_STORAGE_KEY, theme.id);
+        } catch (error) {
+          console.warn("Unable to persist theme selection", error);
+        }
+      }
     }
-  });
-</script>
 
+    function renderThemes() {
+      const container = document.getElementById("themeGrid");
+      if (!container) return;
+      container.innerHTML = "";
+      themeOptions.forEach((theme) => {
+        const button = document.createElement("button");
+        button.className = "theme-button";
+        button.type = "button";
+        button.dataset.theme = theme.id;
+        const gradient = `linear-gradient(135deg, ${theme.preview[0]}, ${theme.preview[1]})`;
+        button.innerHTML = `
+          <span class="theme-sample" style="background:${gradient};"></span>
+          <span class="theme-label">
+            <strong>${theme.name}</strong>
+          </span>
+        `;
+        button.addEventListener("click", () => applyTheme(theme.id));
+        container.appendChild(button);
+      });
+    }
+
+    const upgradeData = [
+      {
+        id: "forgePower",
+        name: "Forge Power",
+        description: "+1 energy per click.",
+        baseCost: 25,
+        costMult: 1.6,
+        onPurchase() {
+          state.manualPower += 1;
+        },
+      },
+      {
+        id: "precisionStrikes",
+        name: "Precision Strikes",
+        description: "+10% click output.",
+        baseCost: 150,
+        costMult: 1.7,
+        onPurchase() {
+          state.manualMultiplier *= 1.1;
+        },
+      },
+      {
+        id: "radiantAlloy",
+        name: "Radiant Alloy",
+        description: "+0.8 energy every second.",
+        baseCost: 120,
+        costMult: 1.65,
+        onPurchase() {
+          state.passiveAdd += 0.8;
+        },
+      },
+      {
+        id: "feedbackLoop",
+        name: "Feedback Loop",
+        description: "Combos grant +1% extra power per link.",
+        baseCost: 450,
+        costMult: 1.8,
+        onPurchase() {
+          state.comboBonus += 0.01;
+        },
+      },
+      {
+        id: "ionizedKnuckles",
+        name: "Ionized Knuckles",
+        description: "+3 energy per click.",
+        baseCost: 900,
+        costMult: 1.75,
+        onPurchase() {
+          state.manualPower += 3;
+        },
+      },
+      {
+        id: "quantumTuning",
+        name: "Quantum Tuning",
+        description: "Every essence adds +2% extra click power.",
+        baseCost: 1800,
+        costMult: 2,
+        onPurchase() {
+          state.essenceBonus += 0.02;
+        },
+      },
+      {
+        id: "criticalOverdrive",
+        name: "Critical Overdrive",
+        description: "+25% click output.",
+        baseCost: 3200,
+        costMult: 1.85,
+        onPurchase() {
+          state.manualMultiplier *= 1.25;
+        },
+      },
+      {
+        id: "voltageSpirals",
+        name: "Voltage Spirals",
+        description: "+6 energy every second.",
+        baseCost: 4800,
+        costMult: 1.85,
+        onPurchase() {
+          state.passiveAdd += 6;
+        },
+      },
+      {
+        id: "fusionStampers",
+        name: "Fusion Stampers",
+        description: "Passive rigs gain +10% output.",
+        baseCost: 6500,
+        costMult: 1.9,
+        onPurchase() {
+          state.passiveMultiplier *= 1.1;
+        },
+      },
+      {
+        id: "phaseEcho",
+        name: "Phase Echo",
+        description: "Combos grant +1.5% extra power per link.",
+        baseCost: 8200,
+        costMult: 1.92,
+        onPurchase() {
+          state.comboBonus += 0.015;
+        },
+      },
+      {
+        id: "holoGuidance",
+        name: "Holographic Guidance",
+        description: "+30% click output.",
+        baseCost: 11500,
+        costMult: 1.95,
+        onPurchase() {
+          state.manualMultiplier *= 1.3;
+        },
+      },
+      {
+        id: "psionicDrivers",
+        name: "Psionic Drivers",
+        description: "Passive rigs gain +15% output.",
+        baseCost: 16500,
+        costMult: 1.95,
+        onPurchase() {
+          state.passiveMultiplier *= 1.15;
+        },
+      },
+      {
+        id: "stormCore",
+        name: "Storm Core",
+        description: "+12 energy per click.",
+        baseCost: 24000,
+        costMult: 2,
+        onPurchase() {
+          state.manualPower += 12;
+        },
+      },
+      {
+        id: "quantumSingularity",
+        name: "Quantum Singularity",
+        description: "+60% click output.",
+        baseCost: 42000,
+        costMult: 2.05,
+        onPurchase() {
+          state.manualMultiplier *= 1.6;
+        },
+      },
+      {
+        id: "auroraForge",
+        name: "Aurora Forge",
+        description: "Adds 18 energy every second.",
+        baseCost: 60000,
+        costMult: 2.1,
+        onPurchase() {
+          state.passiveAdd += 18;
+        },
+      },
+    ];
+
+    const automationData = [
+      {
+        id: "nanoforge",
+        name: "Nanoforge Drones",
+        description: "Adds 1.2 energy per second.",
+        baseCost: 250,
+        costMult: 1.75,
+        rate: 1.2,
+      },
+      {
+        id: "plasmaPlant",
+        name: "Plasma Plant",
+        description: "Adds 6 energy per second.",
+        baseCost: 1500,
+        costMult: 1.8,
+        rate: 6,
+      },
+      {
+        id: "temporalLoop",
+        name: "Temporal Loop",
+        description: "Adds 28 energy per second.",
+        baseCost: 6000,
+        costMult: 1.85,
+        rate: 28,
+      },
+      {
+        id: "stellarAnvil",
+        name: "Stellar Anvil",
+        description: "Adds 110 energy per second.",
+        baseCost: 24000,
+        costMult: 1.9,
+        rate: 110,
+      },
+      {
+        id: "aetherRefinery",
+        name: "Aether Refinery",
+        description: "Adds 320 energy per second.",
+        baseCost: 90000,
+        costMult: 1.92,
+        rate: 320,
+      },
+      {
+        id: "voidSmelter",
+        name: "Void Smelter",
+        description: "Adds 900 energy per second.",
+        baseCost: 250000,
+        costMult: 1.95,
+        rate: 900,
+      },
+      {
+        id: "chronalFoundry",
+        name: "Chronal Foundry",
+        description: "Adds 2,500 energy per second.",
+        baseCost: 750000,
+        costMult: 2,
+        rate: 2500,
+      },
+      {
+        id: "nebulaAssembly",
+        name: "Nebula Assembly",
+        description: "Adds 7,200 energy per second.",
+        baseCost: 2000000,
+        costMult: 2.05,
+        rate: 7200,
+      },
+    ];
+
+    const ascensionUpgradeData = [
+      {
+        id: "manualReservoirs",
+        name: "Manual Reservoirs",
+        description: "+1.5 base energy per click permanently.",
+        baseCost: 5,
+        costMult: 2.2,
+        maxLevel: 25,
+      },
+      {
+        id: "overdriveArchives",
+        name: "Overdrive Archives",
+        description: "+15% click output multiplier per rank.",
+        baseCost: 8,
+        costMult: 2.3,
+        maxLevel: 18,
+      },
+      {
+        id: "automationOverseers",
+        name: "Automation Overseers",
+        description: "+12% passive output multiplier per rank.",
+        baseCost: 12,
+        costMult: 2.35,
+        maxLevel: 18,
+      },
+      {
+        id: "comboStabilizers",
+        name: "Combo Stabilizers",
+        description: "+0.5s combo window & +0.5% combo bonus per rank.",
+        baseCost: 9,
+        costMult: 2.45,
+        maxLevel: 12,
+      },
+      {
+        id: "essenceSynthesis",
+        name: "Essence Synthesis",
+        description: "+0.03 essence bonus per essence.",
+        baseCost: 14,
+        costMult: 2.5,
+        maxLevel: 12,
+      },
+      {
+        id: "naniteAcceleration",
+        name: "Nanite Acceleration",
+        description: "+6 passive energy per second permanently.",
+        baseCost: 10,
+        costMult: 2.35,
+        maxLevel: 20,
+      },
+      {
+        id: "temporalCompression",
+        name: "Temporal Compression",
+        description: "Ascension requirement reduced by 7% per rank.",
+        baseCost: 20,
+        costMult: 2.6,
+        maxLevel: 12,
+      },
+      {
+        id: "rebirthDividends",
+        name: "Rebirth Dividends",
+        description: "+25% essence from ascensions.",
+        baseCost: 18,
+        costMult: 2.55,
+        maxLevel: 14,
+      },
+      {
+        id: "supplyQuantum",
+        name: "Supply Quantum",
+        description: "Energy upgrade costs reduced by 3% per rank.",
+        baseCost: 16,
+        costMult: 2.45,
+        maxLevel: 16,
+      },
+      {
+        id: "automatedDesign",
+        name: "Automated Design Labs",
+        description: "Automation costs reduced by 3% per rank.",
+        baseCost: 16,
+        costMult: 2.45,
+        maxLevel: 16,
+      },
+    ];
+
+    const achievementData = [
+      {
+        id: "firstStrike",
+        name: "First Strike",
+        description: "Land your first cube hit.",
+        achieved: () => state.clickCount >= 1,
+        reward: () => {
+          state.permanentManualMultiplier *= 1.05;
+        },
+      },
+      {
+        id: "comboFanatic",
+        name: "Combo Fanatic",
+        description: "Reach a combo of 20.",
+        achieved: () => state.bestCombo >= 20,
+        reward: () => {
+          state.permanentPassiveMultiplier *= 1.1;
+        },
+      },
+      {
+        id: "energyTycoon",
+        name: "Energy Tycoon",
+        description: "Accumulate 50,000 lifetime energy.",
+        achieved: () => state.lifetimeEnergy >= 50000,
+        reward: () => {
+          state.permanentManualMultiplier *= 1.15;
+        },
+      },
+      {
+        id: "automationAce",
+        name: "Automation Ace",
+        description: "Own 15 automation levels.",
+        achieved: () => Object.values(state.automations).reduce((a, b) => a + b, 0) >= 15,
+        reward: () => {
+          state.permanentPassiveMultiplier *= 1.2;
+        },
+      },
+      {
+        id: "essenceBroker",
+        name: "Essence Broker",
+        description: "Hold 25 essence.",
+        achieved: () => state.essence >= 25,
+        reward: () => {
+          state.permanentManualMultiplier *= 1.25;
+          state.permanentPassiveMultiplier *= 1.25;
+        },
+      },
+      {
+        id: "rebirthVeteran",
+        name: "Rebirth Veteran",
+        description: "Ascend five times.",
+        achieved: () => state.ascensions >= 5,
+        reward: () => {
+          state.permanentManualMultiplier *= 1.3;
+        },
+      },
+      {
+        id: "upgradeCyclone",
+        name: "Upgrade Cyclone",
+        description: "Reach 25 manual upgrade levels.",
+        achieved: () => Object.values(state.upgrades).reduce((a, b) => a + b, 0) >= 25,
+        reward: () => {
+          state.permanentManualMultiplier *= 1.18;
+        },
+      },
+      {
+        id: "automationMagnate",
+        name: "Automation Magnate",
+        description: "Own 40 automation levels.",
+        achieved: () => Object.values(state.automations).reduce((a, b) => a + b, 0) >= 40,
+        reward: () => {
+          state.permanentPassiveMultiplier *= 1.25;
+        },
+      },
+      {
+        id: "ascensionEngineer",
+        name: "Ascension Engineer",
+        description: "Invest in 15 ascension upgrade ranks.",
+        achieved: () => Object.values(state.ascensionUpgrades).reduce((a, b) => a + b, 0) >= 15,
+        reward: () => {
+          state.permanentManualMultiplier *= 1.15;
+          state.permanentPassiveMultiplier *= 1.15;
+        },
+      },
+    ];
+
+    function refreshAscensionBases(resetManual = false) {
+      const previousComboBase = state.comboBonusBase || 0.02;
+      const manualComboBonus = resetManual ? 0 : Math.max(0, state.comboBonus - previousComboBase);
+      state.comboBonusBase = 0.02 + (state.ascensionUpgrades.comboStabilizers || 0) * 0.005;
+      state.comboBonus = state.comboBonusBase + manualComboBonus;
+
+      const previousEssenceBase = state.essenceBonusBase || 0.05;
+      const manualEssenceBonus = resetManual ? 0 : Math.max(0, state.essenceBonus - previousEssenceBase);
+      state.essenceBonusBase = 0.05 + (state.ascensionUpgrades.essenceSynthesis || 0) * 0.03;
+      state.essenceBonus = state.essenceBonusBase + manualEssenceBonus;
+    }
+
+    function ascensionManualFlat() {
+      return (state.ascensionUpgrades.manualReservoirs || 0) * 1.5;
+    }
+
+    function ascensionPassiveFlat() {
+      return (state.ascensionUpgrades.naniteAcceleration || 0) * 6;
+    }
+
+    function ascensionManualMultiplier() {
+      return Math.pow(1.15, state.ascensionUpgrades.overdriveArchives || 0);
+    }
+
+    function ascensionPassiveMultiplier() {
+      return Math.pow(1.12, state.ascensionUpgrades.automationOverseers || 0);
+    }
+
+    function upgradeCostDiscount() {
+      return Math.pow(0.97, state.ascensionUpgrades.supplyQuantum || 0);
+    }
+
+    function automationCostDiscount() {
+      return Math.pow(0.97, state.ascensionUpgrades.automatedDesign || 0);
+    }
+
+    function comboDuration() {
+      return 3000 + (state.ascensionUpgrades.comboStabilizers || 0) * 500;
+    }
+
+    function essenceGainMultiplier() {
+      return 1 + (state.ascensionUpgrades.rebirthDividends || 0) * 0.25;
+    }
+
+    function ascensionRequirementModifier() {
+      return Math.pow(0.93, state.ascensionUpgrades.temporalCompression || 0);
+    }
+
+    function ascensionUpgradeTotal() {
+      return Object.values(state.ascensionUpgrades).reduce((a, b) => a + b, 0);
+    }
+
+    function format(value) {
+      if (value >= 1e9) return `${numberFormatter.format(value / 1e9)}B`;
+      if (value >= 1e6) return `${numberFormatter.format(value / 1e6)}M`;
+      if (value >= 1e3) return `${numberFormatter.format(value / 1e3)}K`;
+      return numberFormatter.format(value);
+    }
+
+    function comboBonusMultiplier() {
+      const perLink = state.comboBonus || 0.02;
+      return 1 + state.combo * perLink;
+    }
+
+    function essenceBonusMultiplier() {
+      return 1 + state.essence * (state.essenceBonus || 0.05);
+    }
+
+    function manualYield() {
+      const manualBase = state.manualPower + ascensionManualFlat();
+      return manualBase * state.manualMultiplier * state.permanentManualMultiplier * ascensionManualMultiplier() * comboBonusMultiplier() * essenceBonusMultiplier();
+    }
+
+    function passiveYield() {
+      const automationYield = Object.entries(state.automations).reduce((total, [id, level]) => {
+        const data = automationData.find((auto) => auto.id === id);
+        return total + (data ? data.rate * level : 0);
+      }, 0);
+      const passiveBase = state.passiveAdd + automationYield + ascensionPassiveFlat();
+      return passiveBase * state.passiveMultiplier * state.permanentPassiveMultiplier * ascensionPassiveMultiplier() * essenceBonusMultiplier();
+    }
+
+    function updateStats() {
+      document.getElementById("energyDisplay").textContent = format(state.energy);
+      document.getElementById("epcDisplay").textContent = format(manualYield());
+      document.getElementById("epsDisplay").textContent = format(passiveYield());
+      document.getElementById("clickDisplay").textContent = format(state.clickCount);
+      document.getElementById("lifetimeDisplay").textContent = format(state.lifetimeEnergy);
+      document.getElementById("comboDisplay").textContent = `x${numberFormatter.format(comboBonusMultiplier())}`;
+      document.getElementById("comboStatus").textContent = `Combo streak: ${state.combo}`;
+      document.getElementById("counter").textContent = `Clicks: ${state.clickCount}`;
+      document.getElementById("essenceDisplay").textContent = format(state.essence);
+      document.getElementById("ascensionDisplay").textContent = state.ascensions;
+      document.getElementById("bestComboDisplay").textContent = state.bestCombo;
+      document.getElementById("ascensionUpgradeCount").textContent = format(ascensionUpgradeTotal());
+      updateAscensionPanel();
+      updateUpgradeButtons();
+      updateAutomationButtons();
+      updateAscensionUpgradeButtons();
+      updateAchievements();
+    }
+
+    function addEnergy(amount) {
+      state.energy += amount;
+      state.lifetimeEnergy += amount;
+    }
+
+    function randomPhrase() {
+      const choice = phrases[Math.floor(Math.random() * phrases.length)];
+      if (!state.phraseSet.has(choice)) {
+        state.phraseSet.add(choice);
+        const historyContainer = document.getElementById("history");
+        const entry = document.createElement("div");
+        entry.className = "history-entry new";
+        entry.textContent = choice;
+        historyContainer.appendChild(entry);
+        if (historyContainer.children.length > 120) {
+          historyContainer.removeChild(historyContainer.firstElementChild);
+        }
+        entry.addEventListener("animationend", () => entry.classList.remove("new"));
+        historyContainer.scrollTop = historyContainer.scrollHeight;
+      }
+      document.getElementById("phrase").textContent = choice;
+    }
+
+    function handleCombo() {
+      state.combo += 1;
+      if (state.combo > state.bestCombo) {
+        state.bestCombo = state.combo;
+      }
+      if (state.comboTimer) {
+        clearTimeout(state.comboTimer);
+      }
+      state.comboTimer = setTimeout(() => {
+        state.combo = 0;
+        updateStats();
+      }, comboDuration());
+    }
+
+    function squareClick() {
+      const yieldAmount = manualYield();
+      addEnergy(yieldAmount);
+      state.energy = Math.max(0, state.energy);
+      state.clickCount += 1;
+      state.lifetimeClicks += 1;
+      randomPhrase();
+      handleCombo();
+      updateStats();
+      checkAchievements();
+    }
+
+    function squareKeypress(event) {
+      if (event.code === "Space" || event.code === "Enter") {
+        event.preventDefault();
+        squareClick();
+      }
+    }
+
+    function upgradeCost(id, level) {
+      const data = upgradeData.find((item) => item.id === id);
+      if (!data) return Infinity;
+      return data.baseCost * Math.pow(data.costMult, level) * upgradeCostDiscount();
+    }
+
+    function automationCost(id, level) {
+      const data = automationData.find((item) => item.id === id);
+      if (!data) return Infinity;
+      return data.baseCost * Math.pow(data.costMult, level) * automationCostDiscount();
+    }
+
+    function ascensionUpgradeCost(id, level) {
+      const data = ascensionUpgradeData.find((item) => item.id === id);
+      if (!data) return Infinity;
+      if (data.maxLevel !== undefined && level >= data.maxLevel) return Infinity;
+      return Math.ceil(data.baseCost * Math.pow(data.costMult, level));
+    }
+
+    function canAfford(cost) {
+      return state.energy >= cost;
+    }
+
+    function canAffordEssence(cost) {
+      return state.essence >= cost;
+    }
+
+    function purchaseUpgrade(id) {
+      const level = state.upgrades[id] || 0;
+      const cost = upgradeCost(id, level);
+      if (!canAfford(cost)) return;
+      state.energy -= cost;
+      state.upgrades[id] = level + 1;
+      const data = upgradeData.find((item) => item.id === id);
+      if (data && typeof data.onPurchase === "function") {
+        data.onPurchase();
+      }
+      updateStats();
+      checkAchievements();
+    }
+
+    function purchaseAutomation(id) {
+      const level = state.automations[id] || 0;
+      const cost = automationCost(id, level);
+      if (!canAfford(cost)) return;
+      state.energy -= cost;
+      state.automations[id] = level + 1;
+      updateStats();
+      checkAchievements();
+    }
+
+    function purchaseAscensionUpgrade(id) {
+      const level = state.ascensionUpgrades[id] || 0;
+      const data = ascensionUpgradeData.find((item) => item.id === id);
+      if (!data) return;
+      if (data.maxLevel !== undefined && level >= data.maxLevel) return;
+      const cost = ascensionUpgradeCost(id, level);
+      if (!canAffordEssence(cost)) return;
+      state.essence -= cost;
+      state.ascensionUpgrades[id] = level + 1;
+      refreshAscensionBases(false);
+      updateStats();
+      checkAchievements();
+    }
+
+    function createCard({ id, name, description }, level, cost, onClick, type) {
+      const card = document.createElement("button");
+      card.className = "card";
+      card.dataset.id = id;
+      card.dataset.type = type;
+      card.innerHTML = `
+        <div class="card-header">
+          <h4>${name}</h4>
+          <span class="level">Lv. ${level}</span>
+        </div>
+        <p class="card-body">${description}</p>
+        <div class="card-footer">
+          <span class="cost">Cost: ${format(cost)}</span>
+        </div>
+      `;
+      card.addEventListener("click", () => onClick(id));
+      return card;
+    }
+
+    function renderUpgrades() {
+      const container = document.getElementById("upgradeList");
+      container.innerHTML = "";
+      upgradeData.forEach((data) => {
+        const level = state.upgrades[data.id] || 0;
+        const cost = upgradeCost(data.id, level);
+        const card = createCard(data, level, cost, purchaseUpgrade, "upgrade");
+        container.appendChild(card);
+      });
+    }
+
+    function renderAutomations() {
+      const container = document.getElementById("automationList");
+      container.innerHTML = "";
+      automationData.forEach((data) => {
+        const level = state.automations[data.id] || 0;
+        const cost = automationCost(data.id, level);
+        const card = createCard(data, level, cost, purchaseAutomation, "automation");
+        container.appendChild(card);
+      });
+    }
+
+    function renderAscensionUpgrades() {
+      const container = document.getElementById("ascensionUpgradeList");
+      container.innerHTML = "";
+      ascensionUpgradeData.forEach((data) => {
+        const level = state.ascensionUpgrades[data.id] || 0;
+        const cost = ascensionUpgradeCost(data.id, level);
+        const maxed = data.maxLevel !== undefined && level >= data.maxLevel;
+        const card = document.createElement("button");
+        card.className = "card essence-card";
+        card.dataset.id = data.id;
+        card.dataset.type = "ascension";
+        card.innerHTML = `
+          <div class="card-header">
+            <h4>${data.name}</h4>
+            <span class="level">${data.maxLevel ? `Lv. ${level}/${data.maxLevel}` : `Lv. ${level}`}</span>
+          </div>
+          <p class="card-body">${data.description}</p>
+          <div class="card-footer">
+            <span class="cost">${maxed ? "Maxed" : `Cost: ${format(cost)} essence`}</span>
+          </div>
+        `;
+        card.disabled = maxed || !canAffordEssence(cost);
+        card.addEventListener("click", () => purchaseAscensionUpgrade(data.id));
+        container.appendChild(card);
+      });
+      updateAscensionUpgradeButtons();
+    }
+
+    function renderAchievements() {
+      const container = document.getElementById("achievementList");
+      container.innerHTML = "";
+      achievementData.forEach((data) => {
+        const card = document.createElement("div");
+        card.className = "card achievement";
+        card.dataset.id = data.id;
+        card.innerHTML = `
+          <div class="card-header">
+            <h4>${data.name}</h4>
+          </div>
+          <p class="card-body">${data.description}</p>
+          <div class="card-footer">
+            <span class="status">Locked</span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function updateUpgradeButtons() {
+      document.querySelectorAll('#upgradeList .card').forEach((card) => {
+        const id = card.dataset.id;
+        const level = state.upgrades[id] || 0;
+        const cost = upgradeCost(id, level);
+        card.querySelector(".level").textContent = `Lv. ${level}`;
+        card.querySelector(".cost").textContent = `Cost: ${format(cost)}`;
+        card.disabled = !canAfford(cost);
+      });
+    }
+
+    function updateAutomationButtons() {
+      document.querySelectorAll('#automationList .card').forEach((card) => {
+        const id = card.dataset.id;
+        const level = state.automations[id] || 0;
+        const cost = automationCost(id, level);
+        card.querySelector(".level").textContent = `Lv. ${level}`;
+        card.querySelector(".cost").textContent = `Cost: ${format(cost)}`;
+        card.disabled = !canAfford(cost);
+      });
+    }
+
+    function updateAscensionUpgradeButtons() {
+      document.querySelectorAll('#ascensionUpgradeList .card').forEach((card) => {
+        const id = card.dataset.id;
+        const data = ascensionUpgradeData.find((item) => item.id === id);
+        if (!data) return;
+        const level = state.ascensionUpgrades[id] || 0;
+        const maxed = data.maxLevel !== undefined && level >= data.maxLevel;
+        const levelElement = card.querySelector(".level");
+        if (levelElement) {
+          levelElement.textContent = data.maxLevel ? `Lv. ${level}/${data.maxLevel}` : `Lv. ${level}`;
+        }
+        const costElement = card.querySelector(".cost");
+        let disabled = false;
+        if (maxed) {
+          disabled = true;
+          if (costElement) {
+            costElement.textContent = "Maxed";
+          }
+        } else {
+          const cost = ascensionUpgradeCost(id, level);
+          disabled = !canAffordEssence(cost);
+          if (costElement) {
+            costElement.textContent = `Cost: ${format(cost)} essence`;
+          }
+        }
+        card.disabled = disabled;
+      });
+    }
+
+    function updateAchievements() {
+      achievementData.forEach((data) => {
+        const unlocked = state.achievements.has(data.id);
+        const element = document.querySelector(`.achievement[data-id="${data.id}"] .status`);
+        if (element) {
+          element.textContent = unlocked ? "Unlocked" : "Locked";
+        }
+        const card = document.querySelector(`.achievement[data-id="${data.id}"]`);
+        if (card) {
+          card.classList.toggle("unlocked", unlocked);
+        }
+      });
+    }
+
+    function checkAchievements() {
+      achievementData.forEach((data) => {
+        if (!state.achievements.has(data.id) && data.achieved()) {
+          state.achievements.add(data.id);
+          if (typeof data.reward === "function") {
+            data.reward();
+          }
+          const card = document.querySelector(`.achievement[data-id="${data.id}"]`);
+          if (card) {
+            card.classList.add("flash");
+            card.addEventListener("animationend", () => card.classList.remove("flash"), { once: true });
+          }
+        }
+      });
+    }
+
+    function ascendRequirement() {
+      const base = 5000 * (state.ascensions + 1);
+      const modified = base * ascensionRequirementModifier();
+      return Math.max(500, Math.floor(modified));
+    }
+
+    function potentialEssenceGain() {
+      const requirement = ascendRequirement();
+      if (state.energy < requirement) return 0;
+      const baseGain = state.energy / requirement;
+      return Math.max(1, Math.floor(baseGain * essenceGainMultiplier()));
+    }
+
+    function updateAscensionPanel() {
+      const button = document.getElementById("ascendButton");
+      const info = document.getElementById("ascendInfo");
+      const requirement = ascendRequirement();
+      const potential = potentialEssenceGain();
+      if (potential > 0) {
+        button.textContent = `Ascend for +${potential} essence`;
+        button.disabled = false;
+        info.textContent = `Rebirth now to bank essence and fuel new Ascension upgrades. Requirement: ${format(requirement)} energy.`;
+      } else {
+        button.textContent = `Ascend requires ${format(requirement)} energy`;
+        button.disabled = true;
+        info.textContent = `Build more energy to earn essence for Ascension upgrades. Each rebirth raises the requirement.`;
+      }
+    }
+
+    function resetProgressForAscension() {
+      state.energy = 0;
+      state.clickCount = 0;
+      state.combo = 0;
+      if (state.comboTimer) {
+        clearTimeout(state.comboTimer);
+        state.comboTimer = null;
+      }
+      state.manualPower = 1;
+      state.manualMultiplier = 1;
+      state.passiveAdd = 0;
+      state.passiveMultiplier = 1;
+      refreshAscensionBases(true);
+      state.upgrades = {};
+      state.automations = {};
+      renderUpgrades();
+      renderAutomations();
+    }
+
+    function ascend() {
+      const reward = potentialEssenceGain();
+      if (reward <= 0) return;
+      state.essence += reward;
+      state.ascensions += 1;
+      resetProgressForAscension();
+      updateStats();
+      checkAchievements();
+    }
+
+    function passiveTick() {
+      const rate = passiveYield();
+      if (rate <= 0) return;
+      const delta = rate / 10;
+      addEnergy(delta);
+      updateStats();
+      checkAchievements();
+    }
+
+    function init() {
+      refreshAscensionBases(false);
+      renderUpgrades();
+      renderAutomations();
+      renderAscensionUpgrades();
+      renderAchievements();
+      renderThemes();
+      let storedTheme = null;
+      try {
+        storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+      } catch (error) {
+        console.warn("Unable to read stored theme", error);
+      }
+      applyTheme(storedTheme || themeOptions[0].id, false);
+      randomPhrase();
+      updateStats();
+      document.getElementById("square").addEventListener("click", squareClick);
+      document.getElementById("square").addEventListener("keydown", squareKeypress);
+      document.getElementById("ascendButton").addEventListener("click", ascend);
+      setInterval(passiveTick, 100);
+    }
+
+    init();
+  </script>
 </body>
 </html>
